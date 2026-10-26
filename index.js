@@ -1,5 +1,5 @@
 // ============================================================
-// بوت FiveM Roleplay - discord.js v14
+// LiGoN CiTY - FiveM Roleplay Bot  (discord.js v14 + SQLite)
 //
 // التثبيت والتشغيل:
 //   1) npm install
@@ -20,28 +20,34 @@ const { UserError } = db;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+const BRAND = cfg.SERVER_NAME;                                  // LiGoN CiTY
+const BANK_BRAND = `${cfg.BANK_NAME} • ${cfg.BANK_NAME_AR}`;    // GULF DREAM • مصرف الخليج
+
 // ============================================================
 // أدوات مساعدة
 // ============================================================
 const fmt = (n) => `${Number(n).toLocaleString('en-US')} ${cfg.CURRENCY}`;
-const eph = (payload) => ({ ...payload, flags: MessageFlags.Ephemeral });
+const eph = (payload) => ({ ...payload, flags: MessageFlags.Ephemeral }); // رد مخفي لا يراه إلا صاحب التفاعل
 const row = (...components) => new ActionRowBuilder().addComponents(...components);
 
-const embed = (title, desc, color = cfg.COLORS.primary) =>
-  new EmbedBuilder().setTitle(title).setDescription(desc).setColor(color).setTimestamp();
-const okEmbed = (title, desc) => embed(`✅ ${title}`, desc, cfg.COLORS.success);
+const embed = (title, desc, color = cfg.COLORS.primary, brand = BRAND) =>
+  new EmbedBuilder().setTitle(title).setDescription(desc).setColor(color).setFooter({ text: brand }).setTimestamp();
+const okEmbed = (title, desc, brand = BRAND) => embed(`✅ ${title}`, desc, cfg.COLORS.success, brand);
 const errEmbed = (desc) => embed('❌ تعذّر تنفيذ العملية', desc, cfg.COLORS.danger);
+const bankBase = (title, desc) => embed(title, desc, cfg.COLORS.bank, BANK_BRAND);
 
 const btn = (id, label, emoji, style = ButtonStyle.Secondary) =>
   new ButtonBuilder().setCustomId(id).setLabel(label).setEmoji(emoji).setStyle(style);
 
 const itemInfo = (key) => cfg.ITEMS[key] ?? { name: key, emoji: '📦', usable: false };
 const itemLabel = (key) => `${itemInfo(key).emoji} ${itemInfo(key).name}`;
+const fullName = (c) => `${c.first_name} ${c.last_name}`;
+const ordinal = (idx) => cfg.ORDINALS[idx] ?? `الشخصية ${idx + 1}`;
+const idCode = (c) => `#${String(c.id).padStart(5, '0')}`;
 
-/** يرجع الشخصية النشطة أو يرمي خطأ عربياً */
 function requireActive(i) {
   const c = db.getActive(i.user.id);
-  if (!c) throw new UserError('يجب تسجيل الدخول بشخصية أولاً من لوحة الشخصيات.');
+  if (!c) throw new UserError('يجب تسجيل الدخول بشخصية أولاً من لوحة الشخصيات (Character Login).');
   return c;
 }
 
@@ -55,16 +61,13 @@ function parsePositiveInt(str, max = Infinity) {
   return n;
 }
 
-/** التحقق من اللاعب المستهدف وإرجاع شخصيته النشطة */
 function resolveTarget(i, targetUser) {
   if (!targetUser || targetUser.bot) throw new UserError('لا يمكنك اختيار هذا المستخدم.');
   if (targetUser.id === i.user.id) throw new UserError('لا يمكنك اختيار نفسك.');
   const c = db.getActive(targetUser.id);
-  if (!c) throw new UserError('اللاعب المحدد لم يسجّل الدخول بأي شخصية حالياً.');
+  if (!c) throw new UserError('الشخص المحدد لم يسجّل الدخول بأي شخصية حالياً.');
   return c;
 }
-
-const fullName = (c) => `${c.first_name} ${c.last_name}`;
 
 async function notify(i, userId, e) {
   try {
@@ -73,17 +76,15 @@ async function notify(i, userId, e) {
 }
 
 // -------- مكوّنات واجهة قابلة لإعادة الاستخدام
-const textInput = (id, label, { placeholder, min = 1, max = 20, style = TextInputStyle.Short } = {}) => {
-  const t = new TextInputBuilder().setCustomId(id).setLabel(label).setStyle(style)
+const textInput = (id, label, { placeholder, min = 1, max = 20 } = {}) => {
+  const t = new TextInputBuilder().setCustomId(id).setLabel(label).setStyle(TextInputStyle.Short)
     .setMinLength(min).setMaxLength(max).setRequired(true);
   if (placeholder) t.setPlaceholder(placeholder);
   return row(t);
 };
-
-const amountModal = (customId, title, label = 'المبلغ') =>
+const amountModal = (customId, title) =>
   new ModalBuilder().setCustomId(customId).setTitle(title)
-    .addComponents(textInput('amount', label, { placeholder: 'مثال: 500', max: 12 }));
-
+    .addComponents(textInput('amount', 'المبلغ', { placeholder: 'مثال: 500', max: 12 }));
 const qtyModal = (customId, title) =>
   new ModalBuilder().setCustomId(customId).setTitle(title)
     .addComponents(textInput('qty', 'الكمية', { placeholder: 'مثال: 1', max: 4 }));
@@ -95,66 +96,92 @@ const itemSelect = (customId, placeholder, rows) =>
       description: `الكمية: ${r.quantity}`, emoji: itemInfo(r.item_key).emoji,
     }))
   ));
-
 const userSelect = (customId, placeholder) =>
   row(new UserSelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder).setMinValues(1).setMaxValues(1));
 
-// -------- الأزرار
+// ============================================================
+// الأزرار (حسب التصميم المعتمد)
+// ============================================================
 const charButtons = () => row(
-  btn('char:create', 'إنشاء شخصية', '➕', ButtonStyle.Success),
-  btn('char:login', 'تسجيل الدخول', '🔓', ButtonStyle.Primary),
-  btn('char:logout', 'تسجيل الخروج', '🔒', ButtonStyle.Danger),
-  btn('char:identity', 'عرض الهوية', '🪪'),
+  btn('char:create', 'Create Character', '👤', ButtonStyle.Primary),
+  btn('char:login', 'Character Login', '🟢', ButtonStyle.Success),
+  btn('char:logout', 'Character Logout', '🔴', ButtonStyle.Danger),
+  btn('char:identity', 'Show identity', '🪪', ButtonStyle.Secondary),
 );
 const invButtons = () => row(
-  btn('inv:show', 'كشف الحقيبة', '🎒', ButtonStyle.Primary),
-  btn('inv:give', 'إعطاء عنصر', '🤝'),
-  btn('inv:use', 'استخدام غرض', '✨'),
-  btn('inv:vault', 'الخزنة', '🔐'),
-  btn('inv:rules', 'قوانين الحقيبة', '📜'),
+  btn('inv:show', 'Show inv', '🟢', ButtonStyle.Success),
+  btn('inv:give', 'Give item', '🟩', ButtonStyle.Success),
+  btn('inv:use', 'Use item', '🟥', ButtonStyle.Danger),
+  btn('inv:vault', 'Vault', '🗄️', ButtonStyle.Secondary),
 );
 const vaultButtons = () => row(
   btn('vault:deposit', 'إيداع في الخزنة', '📥', ButtonStyle.Success),
   btn('vault:withdraw', 'سحب من الخزنة', '📤', ButtonStyle.Primary),
 );
 const bankButtons = () => row(
-  btn('bank:balance', 'عرض الرصيد', '💰', ButtonStyle.Primary),
-  btn('bank:transfer', 'تحويل مبلغ', '💸'),
-  btn('bank:deposit', 'إيداع مبلغ', '📥', ButtonStyle.Success),
-  btn('bank:withdraw', 'سحب مبلغ', '📤'),
-  btn('bank:rules', 'قوانين البنك', '📜'),
+  btn('bank:balance', '(1) - كشف الرصيد', '📄', ButtonStyle.Primary),
+  btn('bank:transfer', '(2) - تحويل المبلغ', '💸', ButtonStyle.Secondary),
+  btn('bank:deposit', '(3) - إيداع مبلغ', '📥', ButtonStyle.Success),
+  btn('bank:withdraw', '(4) - سحب المبلغ', '📤', ButtonStyle.Danger),
 );
 
-// -------- اللوحات الرئيسية (تُنشر بأمر /panel)
+// ============================================================
+// اللوحات الرئيسية (تُنشر بأمر /panel)
+// ============================================================
+function brandPanel(e, logo, banner) {
+  if (logo) e.setThumbnail(logo);
+  if (banner) e.setImage(banner);
+  return e;
+}
+
 const charPanel = () => ({
-  embeds: [embed('👥 نظام إدارة الشخصيات',
-    `يمكنك امتلاك حتى **${cfg.MAX_CHARACTERS}** شخصيات، ولكل شخصية هوية وحقيبة وحساب بنكي مستقلة.\n\nاستخدم الأزرار بالأسفل للتحكم بشخصياتك.`)],
+  embeds: [brandPanel(embed(`👥 ${BRAND} | نظام الشخصيات`,
+    `مرحباً بك في **${BRAND}** 🌆\n\n` +
+    `يمكنك امتلاك حتى **${cfg.MAX_CHARACTERS}** شخصيات، ولكل شخصية هوية وحقيبة وخزنة وحساب بنكي مستقل تماماً.\n\n` +
+    `👤 **Create Character** — إنشاء شخصية جديدة\n` +
+    `🟢 **Character Login** — تسجيل الدخول بشخصية\n` +
+    `🔴 **Character Logout** — تسجيل الخروج\n` +
+    `🪪 **Show identity** — عرض بطاقة الهوية`), cfg.LOGO_URL, cfg.BANNER_URL)],
   components: [charButtons()],
 });
+
 const invPanel = () => ({
-  embeds: [embed('🎒 نظام الحقيبة والمخزون',
-    'تحكم في حقيبة شخصيتك النشطة: اكشف محتوياتها، أعطِ الأغراض للاعبين، استخدمها أو خزّنها.')],
+  embeds: [brandPanel(embed(`🎒 ${BRAND} | الحقيبة والخزنة`,
+    'تحكّم في حقيبة وخزنة **الشخصية المسجّل الدخول بها حالياً**.\n\n' +
+    '🟢 **Show inv** — كشف محتويات الحقيبة\n' +
+    '🟩 **Give item** — إعطاء عنصر لشخص آخر\n' +
+    '🟥 **Use item** — استخدام غرض من الحقيبة\n' +
+    '🗄️ **Vault** — فتح الخزنة الخاصة بالشخصية'), cfg.LOGO_URL, cfg.BANNER_URL)],
   components: [invButtons()],
 });
+
 const bankPanel = () => ({
-  embeds: [embed('🏦 نظام البنك والأموال',
-    'أدر أموال شخصيتك النشطة: اعرض رصيدك، حوّل الأموال، أودع واسحب بسهولة.', cfg.COLORS.gold)],
+  embeds: [brandPanel(bankBase(`🏦 ${cfg.BANK_NAME} | ${cfg.BANK_NAME_AR}`,
+    `أهلاً بك في **${cfg.BANK_NAME} Bank** — خدماتك المصرفية بكل أمان 💎\n\n` +
+    '📄 **(1)** كشف الرصيد / كشف الحساب الشخصي\n' +
+    '💸 **(2)** تحويل مبلغ لمستفيد\n' +
+    '📥 **(3)** إيداع مبلغ مالي\n' +
+    '📤 **(4)** سحب مبلغ مالي'), cfg.BANK_LOGO_URL, cfg.BANK_BANNER_URL)],
   components: [bankButtons()],
 });
 
-// -------- Embeds العرض
+// ============================================================
+// Embeds العرض
+// ============================================================
 const identityEmbed = (c, user) =>
-  new EmbedBuilder().setTitle('🪪 بطاقة الهوية').setColor(cfg.COLORS.primary)
+  new EmbedBuilder().setTitle(`🪪 بطاقة الهوية | ${BRAND}`).setColor(cfg.COLORS.primary)
     .setThumbnail(user.displayAvatarURL())
     .addFields(
       { name: '👤 الاسم الكامل', value: fullName(c), inline: true },
       { name: '🎂 العمر', value: String(c.age), inline: true },
       { name: '⚧ الجنس', value: c.gender, inline: true },
       { name: '🌍 الجنسية', value: c.nationality, inline: true },
-      { name: '🔢 رقم الهوية', value: `#${String(c.id).padStart(5, '0')}`, inline: true },
+      { name: '🔢 رقم الهوية', value: idCode(c), inline: true },
+      { name: '🟢 الحالة', value: 'مسجّل الدخول', inline: true },
+      { name: '🗂️ الشخصية', value: ordinal(db.getCharacters(c.user_id).findIndex((x) => x.id === c.id)), inline: true },
       { name: '📅 تاريخ الإصدار', value: `<t:${c.created_at}:D>`, inline: true },
     )
-    .setFooter({ text: `صاحب الحساب: ${user.username}` });
+    .setFooter({ text: `${BRAND} • صاحب الحساب: ${user.username}` });
 
 function storageEmbed(title, table, c) {
   const items = db.getItems(table, c.id);
@@ -163,13 +190,13 @@ function storageEmbed(title, table, c) {
     : '*فارغة*';
   return embed(title, lines)
     .addFields({ name: '📦 السعة', value: `${db.totalQty(table, c.id)} / ${db.capacity(table)}`, inline: true })
-    .setFooter({ text: `الشخصية: ${fullName(c)}` });
+    .setFooter({ text: `${BRAND} • ${fullName(c)}` });
 }
 
-const bankEmbed = (c) => {
+const bankStatement = (c) => {
   const b = db.getBank(c.id);
-  return embed('💰 كشف الحساب', `الشخصية: **${fullName(c)}**`, cfg.COLORS.gold).addFields(
-    { name: '💵 الكاش', value: fmt(b.cash), inline: true },
+  return bankBase(`📄 كشف الحساب | ${cfg.BANK_NAME}`, `صاحب الحساب: **${fullName(c)}**\nرقم الحساب: \`${idCode(c)}\``).addFields(
+    { name: '💵 الرصيد النقدي', value: fmt(b.cash), inline: true },
     { name: '🏦 الرصيد البنكي', value: fmt(b.balance), inline: true },
     { name: '📊 المجموع', value: fmt(b.cash + b.balance), inline: true },
   );
@@ -181,10 +208,11 @@ const bankEmbed = (c) => {
 const buttons = {
   // ---------- الشخصيات ----------
   'char:create': async (i) => {
-    if (db.getCharacters(i.user.id).length >= cfg.MAX_CHARACTERS)
+    const count = db.getCharacters(i.user.id).length;
+    if (count >= cfg.MAX_CHARACTERS)
       throw new UserError(`وصلت للحد الأقصى من الشخصيات (${cfg.MAX_CHARACTERS}).`);
     await i.showModal(
-      new ModalBuilder().setCustomId('char:create').setTitle('إنشاء شخصية جديدة').addComponents(
+      new ModalBuilder().setCustomId('char:create').setTitle(`إنشاء ${ordinal(count)}`).addComponents(
         textInput('first', 'الاسم الأول', { min: 2, max: 20 }),
         textInput('last', 'اسم العائلة', { min: 2, max: 20 }),
         textInput('age', 'العمر (18 - 80)', { max: 2 }),
@@ -196,14 +224,16 @@ const buttons = {
 
   'char:login': async (i) => {
     const chars = db.getCharacters(i.user.id);
-    if (!chars.length) throw new UserError('ليس لديك أي شخصية بعد. أنشئ شخصية أولاً.');
+    if (!chars.length) throw new UserError('ليس لديك أي شخصية بعد. اضغط Create Character لإنشاء شخصيتك الأولى.');
     const active = db.getActive(i.user.id);
+    const list = chars.map((c, idx) =>
+      `${active?.id === c.id ? '🟢' : '⚪'} **${ordinal(idx)}** — ${fullName(c)} (${idCode(c)})`).join('\n');
     await i.reply(eph({
-      embeds: [embed('🔓 تسجيل الدخول', 'اختر الشخصية التي تريد اللعب بها:')],
+      embeds: [embed('🟢 Character Login | تسجيل الدخول', `${list}\n\nاختر الشخصية التي تريد اللعب بها:`)],
       components: [row(new StringSelectMenuBuilder().setCustomId('char:login').setPlaceholder('اختر شخصية').addOptions(
-        chars.map((c) => ({
-          label: fullName(c), value: String(c.id), description: `هوية #${String(c.id).padStart(5, '0')} - العمر ${c.age}`,
-          default: active?.id === c.id,
+        chars.map((c, idx) => ({
+          label: `${ordinal(idx)} — ${fullName(c)}`, value: String(c.id),
+          description: `هوية ${idCode(c)} • العمر ${c.age}`, default: active?.id === c.id,
         }))
       ))],
     }));
@@ -212,7 +242,7 @@ const buttons = {
   'char:logout': async (i) => {
     const c = requireActive(i);
     db.logout(i.user.id);
-    await i.reply(eph({ embeds: [okEmbed('تسجيل الخروج', `تم تسجيل الخروج من الشخصية **${fullName(c)}**.`)] }));
+    await i.reply(eph({ embeds: [okEmbed('تسجيل الخروج', `تم تسجيل الخروج من الشخصية **${fullName(c)}** 🔴`)] }));
   },
 
   'char:identity': async (i) => {
@@ -223,7 +253,7 @@ const buttons = {
   // ---------- الحقيبة ----------
   'inv:show': async (i) => {
     const c = requireActive(i);
-    await i.reply(eph({ embeds: [storageEmbed('🎒 حقيبتك', 'inventory', c)], components: [invButtons()] }));
+    await i.reply(eph({ embeds: [storageEmbed(`🎒 حقيبة ${fullName(c)}`, 'inventory', c)], components: [invButtons()] }));
   },
 
   'inv:give': async (i) => {
@@ -231,7 +261,7 @@ const buttons = {
     const items = db.getItems('inventory', c.id);
     if (!items.length) throw new UserError('حقيبتك فارغة.');
     await i.reply(eph({
-      embeds: [embed('🤝 إعطاء عنصر', 'اختر الغرض الذي تريد إعطاءه:')],
+      embeds: [embed('🟩 Give item | إعطاء عنصر', 'اختر الغرض الذي تريد إعطاءه:')],
       components: [itemSelect('inv:give:item', 'اختر غرضاً', items)],
     }));
   },
@@ -241,18 +271,14 @@ const buttons = {
     const items = db.getItems('inventory', c.id).filter((r) => itemInfo(r.item_key).usable);
     if (!items.length) throw new UserError('لا تملك أي غرض قابل للاستخدام.');
     await i.reply(eph({
-      embeds: [embed('✨ استخدام غرض', 'اختر الغرض الذي تريد استخدامه (يُستهلك غرض واحد):')],
+      embeds: [embed('🟥 Use item | استخدام غرض', 'اختر الغرض الذي تريد استخدامه (يُستهلك غرض واحد):')],
       components: [itemSelect('inv:use:item', 'اختر غرضاً', items)],
     }));
   },
 
   'inv:vault': async (i) => {
     const c = requireActive(i);
-    await i.reply(eph({ embeds: [storageEmbed('🔐 الخزنة', 'vault', c)], components: [vaultButtons()] }));
-  },
-
-  'inv:rules': async (i) => {
-    await i.reply(eph({ embeds: [embed('📜 قوانين الحقيبة', cfg.INVENTORY_RULES.join('\n\n'))] }));
+    await i.reply(eph({ embeds: [storageEmbed(`🗄️ خزنة ${fullName(c)}`, 'vault', c)], components: [vaultButtons()] }));
   },
 
   'vault:deposit': async (i) => {
@@ -275,32 +301,28 @@ const buttons = {
     }));
   },
 
-  // ---------- البنك ----------
+  // ---------- البنك (GULF DREAM) ----------
   'bank:balance': async (i) => {
     const c = requireActive(i);
-    await i.reply(eph({ embeds: [bankEmbed(c)] }));
+    await i.reply(eph({ embeds: [bankStatement(c)] }));
   },
 
   'bank:transfer': async (i) => {
     requireActive(i);
     await i.reply(eph({
-      embeds: [embed('💸 تحويل مبلغ', 'اختر اللاعب الذي تريد التحويل إليه (يجب أن يكون مسجّلاً الدخول بشخصية):')],
-      components: [userSelect('bank:transfer:user', 'اختر اللاعب')],
+      embeds: [bankBase('💸 تحويل مبلغ لمستفيد', 'اختر المستفيد (يجب أن يكون مسجّلاً الدخول بشخصية):')],
+      components: [userSelect('bank:transfer:user', 'اختر المستفيد')],
     }));
   },
 
   'bank:deposit': async (i) => {
     requireActive(i);
-    await i.showModal(amountModal('bank:deposit', 'إيداع مبلغ'));
+    await i.showModal(amountModal('bank:deposit', `${cfg.BANK_NAME} | إيداع مبلغ`));
   },
 
   'bank:withdraw': async (i) => {
     requireActive(i);
-    await i.showModal(amountModal('bank:withdraw', 'سحب مبلغ'));
-  },
-
-  'bank:rules': async (i) => {
-    await i.reply(eph({ embeds: [embed('📜 قوانين البنك', cfg.BANK_RULES.join('\n\n'), cfg.COLORS.gold)] }));
+    await i.showModal(amountModal('bank:withdraw', `${cfg.BANK_NAME} | سحب مبلغ`));
   },
 };
 
@@ -311,7 +333,7 @@ const selects = {
   'char:login': async (i) => {
     const c = db.setActive(i.user.id, Number(i.values[0]));
     await i.update({
-      embeds: [okEmbed('تم تسجيل الدخول', `أنت الآن تلعب بالشخصية **${fullName(c)}**.`)],
+      embeds: [okEmbed('تم تسجيل الدخول 🟢', `أنت الآن تلعب بالشخصية **${fullName(c)}** (${idCode(c)}).`)],
       components: [],
     });
   },
@@ -319,8 +341,8 @@ const selects = {
   'inv:give:item': async (i) => {
     const key = i.values[0];
     await i.update({
-      embeds: [embed('🤝 إعطاء عنصر', `الغرض: ${itemLabel(key)}\nاختر اللاعب المستلم:`)],
-      components: [userSelect(`inv:give:user|${key}`, 'اختر اللاعب')],
+      embeds: [embed('🟩 Give item | إعطاء عنصر', `الغرض: ${itemLabel(key)}\nاختر الشخص المستلم:`)],
+      components: [userSelect(`inv:give:user|${key}`, 'اختر الشخص')],
     });
   },
 
@@ -356,7 +378,7 @@ const userSelects = {
     requireActive(i);
     const target = i.users.first();
     resolveTarget(i, target);
-    await i.showModal(amountModal(`bank:transfer:amount|${target.id}`, 'مبلغ التحويل'));
+    await i.showModal(amountModal(`bank:transfer:amount|${target.id}`, `${cfg.BANK_NAME} | تحويل مبلغ`));
   },
 };
 
@@ -377,8 +399,9 @@ const modals = {
     if (!['ذكر', 'أنثى'].includes(gender)) throw new UserError('الجنس يجب أن يكون "ذكر" أو "أنثى".');
 
     const c = db.createCharacter(i.user.id, { firstName: first, lastName: last, age, gender, nationality: nation });
+    const slot = db.getCharacters(i.user.id).findIndex((x) => x.id === c.id);
     await i.reply(eph({
-      content: '✅ **تم إنشاء شخصيتك وتسجيل الدخول بها تلقائياً.**',
+      content: `✅ **تم إنشاء ${ordinal(slot)} وتسجيل الدخول بها تلقائياً.**`,
       embeds: [identityEmbed(c, i.user)],
     }));
   },
@@ -401,7 +424,7 @@ const modals = {
     const qty = parsePositiveInt(i.fields.getTextInputValue('qty'), 999);
     db.moveItem('inventory', 'vault', c.id, key, qty);
     await i.reply(eph({
-      embeds: [okEmbed('تم الإيداع', `تم إيداع **${qty}×** ${itemLabel(key)} في الخزنة.`), storageEmbed('🔐 الخزنة', 'vault', c)],
+      embeds: [okEmbed('تم الإيداع', `تم إيداع **${qty}×** ${itemLabel(key)} في الخزنة.`), storageEmbed(`🗄️ خزنة ${fullName(c)}`, 'vault', c)],
       components: [vaultButtons()],
     }));
   },
@@ -411,7 +434,7 @@ const modals = {
     const qty = parsePositiveInt(i.fields.getTextInputValue('qty'), 999);
     db.moveItem('vault', 'inventory', c.id, key, qty);
     await i.reply(eph({
-      embeds: [okEmbed('تم السحب', `تم سحب **${qty}×** ${itemLabel(key)} إلى الحقيبة.`), storageEmbed('🔐 الخزنة', 'vault', c)],
+      embeds: [okEmbed('تم السحب', `تم سحب **${qty}×** ${itemLabel(key)} إلى الحقيبة.`), storageEmbed(`🗄️ خزنة ${fullName(c)}`, 'vault', c)],
       components: [vaultButtons()],
     }));
   },
@@ -420,14 +443,14 @@ const modals = {
     const c = requireActive(i);
     const amt = parsePositiveInt(i.fields.getTextInputValue('amount'), cfg.MAX_TRANSFER);
     db.deposit(c.id, amt);
-    await i.reply(eph({ embeds: [okEmbed('تم الإيداع', `تم إيداع **${fmt(amt)}** في حسابك البنكي.`), bankEmbed(c)] }));
+    await i.reply(eph({ embeds: [okEmbed('تم الإيداع', `تم إيداع **${fmt(amt)}** في حسابك لدى ${cfg.BANK_NAME}.`, BANK_BRAND), bankStatement(c)] }));
   },
 
   'bank:withdraw': async (i) => {
     const c = requireActive(i);
     const amt = parsePositiveInt(i.fields.getTextInputValue('amount'), cfg.MAX_TRANSFER);
     db.withdraw(c.id, amt);
-    await i.reply(eph({ embeds: [okEmbed('تم السحب', `تم سحب **${fmt(amt)}** من حسابك البنكي.`), bankEmbed(c)] }));
+    await i.reply(eph({ embeds: [okEmbed('تم السحب', `تم سحب **${fmt(amt)}** من حسابك لدى ${cfg.BANK_NAME}.`, BANK_BRAND), bankStatement(c)] }));
   },
 
   'bank:transfer:amount': async (i, targetId) => {
@@ -437,9 +460,9 @@ const modals = {
     const amt = parsePositiveInt(i.fields.getTextInputValue('amount'), cfg.MAX_TRANSFER);
     db.transfer(from.id, to.id, amt);
 
-    await i.reply(eph({ embeds: [okEmbed('تم التحويل', `تم تحويل **${fmt(amt)}** إلى **${fullName(to)}**.`), bankEmbed(from)] }));
-    await notify(i, target.id, embed('💸 حوالة واردة',
-      `استلمت حوالة بقيمة **${fmt(amt)}** من **${fullName(from)}**.`, cfg.COLORS.gold));
+    await i.reply(eph({ embeds: [okEmbed('تم التحويل', `تم تحويل **${fmt(amt)}** إلى **${fullName(to)}**.`, BANK_BRAND), bankStatement(from)] }));
+    await notify(i, target.id, bankBase('💸 حوالة واردة',
+      `استلمت حوالة بقيمة **${fmt(amt)}** من **${fullName(from)}**.`));
   },
 };
 
@@ -454,6 +477,10 @@ const commands = [
       { name: 'الشخصيات', value: 'characters' }, { name: 'الحقيبة', value: 'inventory' },
       { name: 'البنك', value: 'bank' }, { name: 'الكل', value: 'all' }))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+
+  new SlashCommandBuilder().setName('rules').setDescription('عرض القوانين (تظهر لك فقط)')
+    .addStringOption((o) => o.setName('type').setDescription('نوع القوانين').setRequired(true).addChoices(
+      { name: 'قوانين الحقيبة', value: 'inventory' }, { name: 'قوانين البنك', value: 'bank' })),
 
   new SlashCommandBuilder().setName('admin-item').setDescription('إعطاء غرض للشخصية النشطة للاعب (للإدارة)')
     .addUserOption((o) => o.setName('user').setDescription('اللاعب').setRequired(true))
@@ -474,6 +501,15 @@ async function handleCommand(i) {
     const list = type === 'all' ? Object.values(panels) : [panels[type]];
     for (const p of list) await i.channel.send(p());
     return i.reply(eph({ embeds: [okEmbed('تم', 'تم نشر اللوحة بنجاح.')] }));
+  }
+
+  if (i.commandName === 'rules') {
+    const bank = i.options.getString('type') === 'bank';
+    return i.reply(eph({
+      embeds: [bank
+        ? bankBase('📜 قوانين البنك', cfg.BANK_RULES.join('\n\n'))
+        : embed('📜 قوانين الحقيبة', cfg.INVENTORY_RULES.join('\n\n'))],
+    }));
   }
 
   const user = i.options.getUser('user');

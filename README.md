@@ -1,24 +1,26 @@
-# GTA V FiveM RP Discord Bot (discord.js v14)
+# LiGoN CiTY - FiveM RP Discord Bot (discord.js v14)
 
 ## Requirements
-- Node.js 20 or newer
-- A bot created in the Discord Developer Portal (Bot token). No privileged intents are required.
-- Invite the bot with the scopes `bot` + `applications.commands` and permissions: View Channel, Send Messages, Embed Links.
+- Node.js 20+
+- A bot from the Discord Developer Portal (no privileged intents needed)
+- Invite scopes: `bot` + `applications.commands`; permissions: View Channel, Send Messages, Embed Links
 
 ## Install & run
 ```bash
 npm install
-cp .env.example .env      # then edit .env and put your DISCORD_TOKEN (and GUILD_ID)
+cp .env.example .env     # fill DISCORD_TOKEN (+ GUILD_ID, optional image URLs)
 npm start
 ```
 
-## First-time setup in Discord
-1. Run `/panel type:الكل` in the channel(s) where you want the control panels (admins only: needs "Manage Server").
-2. Players press the buttons on the panels. Everything is private (ephemeral) to the player.
-3. Admins can grant items / money: `/admin-item` and `/admin-money`.
+## Setup in Discord (needs "Manage Server")
+- `/panel type:الكل`  posts the 3 panels: Characters, Inventory, GULF DREAM Bank
+- `/admin-item`, `/admin-money`  grant items / cash to a player's active character
+- `/rules type:...`  shows inventory or bank rules (private)
+
+All player replies are ephemeral (only the player sees them).
 
 ## Files
-- `index.js`    : bot, commands, buttons, select menus, modals, embeds
-- `database.js` : SQLite layer (characters, inventory, vault, bank) - every table is keyed by `character_id`
-- `config.js`   : currency, limits, item catalog, rules text (edit freely)
+- `index.js`    : commands, panels, buttons, select menus, modals, embeds
+- `database.js` : SQLite layer; every table is keyed by `character_id` (fully independent characters)
+- `config.js`   : branding, limits, item catalog, rules text
 - `data.sqlite` : created automatically on first run
