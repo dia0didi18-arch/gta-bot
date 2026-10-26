@@ -1,20 +1,19 @@
 // ============================================================
-// LiGoN CiTY - الإعدادات العامة (عدّل القيم حسب رغبتك)
+// الإعدادات العامة (عدّل القيم حسب رغبتك)
 // ============================================================
 module.exports = {
-  // ---------- الهوية البصرية ----------
-  SERVER_NAME: 'LiGoN CiTY',
-  BANK_NAME: 'GULF DREAM',
-  BANK_NAME_AR: 'مصرف الخليج',
-  // روابط الصور (اختيارية) - ضعها في ملف .env أو اتركها فارغة
-  LOGO_URL: process.env.LOGO_URL || null,              // شعار السيرفر (Thumbnail)
-  BANNER_URL: process.env.BANNER_URL || null,          // بانر السيرفر (Image)
-  BANK_LOGO_URL: process.env.BANK_LOGO_URL || null,    // شعار البنك
-  BANK_BANNER_URL: process.env.BANK_BANNER_URL || null,// بانر البنك
+  // ---------- المسميات العامة ----------
+  SYSTEM_NAME: 'نظام لعب الأدوار',
+  BANK_NAME: 'المصرف المركزي',
+  // روابط الصور (اختيارية) - تُضبط من متغيرات البيئة (.env) فقط، ولا توجد روابط ثابتة في الكود
+  LOGO_URL: process.env.LOGO_URL || null,               // شعار اللوحات (Thumbnail)
+  BANNER_URL: process.env.BANNER_URL || null,           // بانر اللوحات (Image)
+  BANK_LOGO_URL: process.env.BANK_LOGO_URL || null,     // شعار لوحة المصرف
+  BANK_BANNER_URL: process.env.BANK_BANNER_URL || null, // بانر لوحة المصرف
 
   COLORS: {
-    primary: 0x7b2cbf,   // لون السيرفر
-    bank: 0xc9a227,      // ذهبي للبنك
+    primary: 0x5865f2,   // اللون الأساسي
+    bank: 0xc9a227,      // ذهبي للمصرف
     success: 0x2f9e44,
     danger: 0xe03131,
   },

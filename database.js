@@ -4,12 +4,16 @@
 // ============================================================
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 const cfg = require('./config');
 
 /** خطأ يُعرض للمستخدم برسالة عربية */
 class UserError extends Error {}
 
-const db = new Database(path.join(__dirname, 'data.sqlite'));
+// مسار قاعدة البيانات: على Render اضبط DB_PATH على مسار داخل القرص الدائم (Persistent Disk)
+const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'data.sqlite');
+fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+const db = new Database(DB_FILE);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 

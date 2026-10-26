@@ -1,5 +1,5 @@
 // ============================================================
-// LiGoN CiTY - FiveM Roleplay Bot  (discord.js v14 + SQLite)
+// FiveM Roleplay Bot  (discord.js v14 + SQLite)
 //
 // التثبيت والتشغيل:
 //   1) npm install
@@ -20,8 +20,8 @@ const { UserError } = db;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-const BRAND = cfg.SERVER_NAME;                                  // LiGoN CiTY
-const BANK_BRAND = `${cfg.BANK_NAME} • ${cfg.BANK_NAME_AR}`;    // GULF DREAM • مصرف الخليج
+const BRAND = cfg.SYSTEM_NAME;      // يظهر في تذييل الرسائل العامة
+const BANK_BRAND = cfg.BANK_NAME;   // يظهر في تذييل رسائل المصرف
 
 // ============================================================
 // أدوات مساعدة
@@ -135,8 +135,8 @@ function brandPanel(e, logo, banner) {
 }
 
 const charPanel = () => ({
-  embeds: [brandPanel(embed(`👥 ${BRAND} | نظام الشخصيات`,
-    `مرحباً بك في **${BRAND}** 🌆\n\n` +
+  embeds: [brandPanel(embed('👥 نظام الشخصيات',
+    'مرحباً بك في نظام الشخصيات 🌆\n\n' +
     `يمكنك امتلاك حتى **${cfg.MAX_CHARACTERS}** شخصيات، ولكل شخصية هوية وحقيبة وخزنة وحساب بنكي مستقل تماماً.\n\n` +
     `👤 **Create Character** — إنشاء شخصية جديدة\n` +
     `🟢 **Character Login** — تسجيل الدخول بشخصية\n` +
@@ -146,7 +146,7 @@ const charPanel = () => ({
 });
 
 const invPanel = () => ({
-  embeds: [brandPanel(embed(`🎒 ${BRAND} | الحقيبة والخزنة`,
+  embeds: [brandPanel(embed('🎒 الحقيبة الشخصية',
     'تحكّم في حقيبة وخزنة **الشخصية المسجّل الدخول بها حالياً**.\n\n' +
     '🟢 **Show inv** — كشف محتويات الحقيبة\n' +
     '🟩 **Give item** — إعطاء عنصر لشخص آخر\n' +
@@ -156,8 +156,8 @@ const invPanel = () => ({
 });
 
 const bankPanel = () => ({
-  embeds: [brandPanel(bankBase(`🏦 ${cfg.BANK_NAME} | ${cfg.BANK_NAME_AR}`,
-    `أهلاً بك في **${cfg.BANK_NAME} Bank** — خدماتك المصرفية بكل أمان 💎\n\n` +
+  embeds: [brandPanel(bankBase(`🏦 ${cfg.BANK_NAME}`,
+    'أهلاً بك في خدماتك المصرفية — كل عملياتك بأمان 💎\n\n' +
     '📄 **(1)** كشف الرصيد / كشف الحساب الشخصي\n' +
     '💸 **(2)** تحويل مبلغ لمستفيد\n' +
     '📥 **(3)** إيداع مبلغ مالي\n' +
@@ -169,7 +169,7 @@ const bankPanel = () => ({
 // Embeds العرض
 // ============================================================
 const identityEmbed = (c, user) =>
-  new EmbedBuilder().setTitle(`🪪 بطاقة الهوية | ${BRAND}`).setColor(cfg.COLORS.primary)
+  new EmbedBuilder().setTitle('🪪 بطاقة الهوية').setColor(cfg.COLORS.primary)
     .setThumbnail(user.displayAvatarURL())
     .addFields(
       { name: '👤 الاسم الكامل', value: fullName(c), inline: true },
@@ -301,7 +301,7 @@ const buttons = {
     }));
   },
 
-  // ---------- البنك (GULF DREAM) ----------
+  // ---------- المصرف ----------
   'bank:balance': async (i) => {
     const c = requireActive(i);
     await i.reply(eph({ embeds: [bankStatement(c)] }));
@@ -579,8 +579,3 @@ if (!process.env.DISCORD_TOKEN) {
   process.exit(1);
 }
 client.login(process.env.DISCORD_TOKEN);
-const http = require('http');
-http.createServer((req, res) => {
-    res.write("Bot is running!");
-    res.end();
-}).listen(process.env.PORT || 3000);
