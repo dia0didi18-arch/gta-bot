@@ -1,33 +1,68 @@
-# FiveM Roleplay Discord Bot (discord.js v14 + SQLite)
+# بوت الإدارة + نظام الهويات والاقتصاد (discord.js v14)
 
-## Requirements
-- Node.js 20+
-- A bot from the Discord Developer Portal (no privileged intents needed)
-- Invite scopes: `bot` + `applications.commands`; permissions: View Channel, Send Messages, Embed Links
+أوامر إدارية + نظام شخصيات: كل لاعب يقدر ينشئ **هويتين**، وكل هوية لها **حقيبة وحساب بنكي وخزنة** مستقلين تماماً، مع متجر ورواتب ووظائف وأغراض قابلة للاستخدام.
 
-## Run locally
-```bash
-npm install
-cp .env.example .env     # fill DISCORD_TOKEN (+ optional values)
-npm start
-```
+## التشغيل محلياً
 
-## Deploy on Render
-1. Create a **Background Worker** (not a Web Service: the bot opens no HTTP port).
-2. Build command: `npm install` — Start command: `npm start`.
-3. Environment: `DISCORD_TOKEN` (+ optional `GUILD_ID`, image URLs). Set `NODE_VERSION=20` or newer if needed.
-4. **Persistence:** Render's filesystem is wiped on every deploy/restart. Attach a Persistent Disk
-   (e.g. mount path `/var/data`) and set `DB_PATH=/var/data/data.sqlite`, otherwise all characters,
-   items and balances are lost.
+1. أنشئ بوت من https://discord.com/developers/applications وانسخ **Token** و **Application ID**.
+2. ادعُ البوت بصلاحيات: `bot` + `applications.commands`، ومعها (حظر، طرد، إدارة الرسائل، إدارة الرومات، كتم الأعضاء).
+3. انسخ `.env.example` إلى `.env` وعبّه (`DISCORD_TOKEN`, `CLIENT_ID`, والأفضل `GUILD_ID`).
+4. نفّذ:
+   ```bash
+   npm install
+   npm run deploy   # تسجيل الأوامر
+   npm start        # تشغيل البوت
+   npm test         # الاختبارات
+   ```
+5. في الروم المطلوب اكتب `/لوحة-الهوية` لإرسال لوحة الأزرار.
+6. عرّف أغراضك بـ `/ادارة-غرض ضبط` (الأغراض لازم تكون معرّفة قبل ما تنضاف لأي حقيبة).
 
-## Setup in Discord (needs "Manage Server")
-- `/panel type:الكل` posts the 3 panels: Characters, Inventory, Bank
-- `/admin-item`, `/admin-money` grant items / cash to a player's active character
-- `/rules type:...` shows inventory or bank rules (private)
+يتطلب Node.js 20 أو أحدث. البيانات في `data/bot.db` (SQLite).
 
-All player replies are ephemeral (only the player sees them).
+## النشر على Render (مهم)
 
-## Files
-- `index.js`    : commands, panels, buttons, select menus, modals, embeds
-- `database.js` : SQLite layer; every table is keyed by `character_id`
-- `config.js`   : labels, limits, item catalog, rules text, optional image URLs from env
+- استخدم **Background Worker** (بدون Express ولا بورت) — الملف `render.yaml` جاهز.
+- **لازم Persistent Disk** (خطة starter فما فوق) وتحط `DB_PATH=/var/data/bot.db`. بدون Disk تنمسح الهويات والبنوك عند كل إعادة نشر.
+- البوت ياخذ **نسخة احتياطية تلقائية** كل ساعة في `/var/data/backups` (آخر 24 نسخة). وأمر `/نسخ-احتياطي` يرسل لك نسخة (لصاحب البوت فقط، حدد `OWNER_ID`).
+- الأوامر تتسجل تلقائياً عند كل تشغيل (`start:render`)، والإغلاق نظيف عند إعادة النشر.
+
+## الأوامر
+
+**اللاعبين (تعمل على الهوية الفعالة فقط):**
+| الأمر | الوصف |
+|---|---|
+| لوحة الأزرار | إنشاء / دخول / خروج / عرض الهوية · الحقيبة · البنك · الخزنة · الراتب |
+| `/هويتي` | عرض هويتك الفعالة |
+| `/حقيبة عرض \| استخدام \| اعطاء \| رمي` | الحقيبة (الإعطاء للهوية الفعالة للاعب ثاني) |
+| `/خزنة عرض \| ايداع \| سحب` | نقل الأغراض بين الحقيبة والخزنة |
+| `/بنك رصيد \| كشف \| ايداع \| سحب \| تحويل` | التحويل برقم الحساب (IBAN) داخل نفس السيرفر |
+| `/متجر عرض \| شراء \| بيع` | الشراء من النقد، والبيع بنسبة من السعر |
+| `/راتب` | راتب وظيفتك (ينزل في البنك، مرة كل 24 ساعة افتراضياً) |
+| `/الاغنى` | أغنى 10 شخصيات |
+| `/مساعدة` `/حالة` | قائمة الأوامر · حالة البوت |
+
+**الإدارة:**
+- `/ادارة-هوية عرض | وظيفة | حذف`
+- `/ادارة-حقيبة اضافة | ازالة`
+- `/ادارة-بنك اضافة | خصم | اضافة-نقد | خصم-نقد | كشف`
+- `/ادارة-غرض ضبط | حذف | قائمة` — سعر، إيموجي، وصف، قابل للاستخدام، أثر (نقد/بنك) ورسالة
+- `/ادارة-سجل` — سجل كل الإجراءات الإدارية (محفوظ في القاعدة + روم اللوق)
+- `/حظر` `/فك-حظر` `/طرد` `/كتم` `/فك-كتم` `/مسح` `/قفل` `/فتح` `/بطيء`
+- `/تحذير` `/تحذيرات` `/حذف-تحذير` — مع **كتم تلقائي** عند 3 و5 تحذيرات
+- `/نسخ-احتياطي` — لصاحب البوت (`OWNER_ID`)
+
+## كيف يشتغل العزل
+
+- الحقيبة والبنك والنقد والخزنة كلها مرتبطة بـ `identity_id` وليس بالمستخدم.
+- اللاعب يشتغل دائماً على **الهوية الفعالة** (الـ session) اللي يختارها من «تسجيل دخول».
+- التحويل ونقل الأغراض بين هويتين لنفس الشخص ممنوع افتراضياً (`allowSelfTransfer` في `src/config.js`).
+- التحويل ونقل الأغراض بين **سيرفرين** ممنوع (حساب سيرفر ثاني يعتبر غير موجود).
+- كل العمليات المالية داخل transactions والخصم مشروط بالرصيد في نفس الاستعلام (ما فيه رصيد سالب ولا سباق).
+- الغرض اللي يعطي نقد/بنك يُستهلك دائماً عند الاستخدام (يمنع تكرار الفلوس).
+
+## التخصيص
+
+- `.env`: العملة (`CURRENCY`)، بادئة الحساب (`IBAN_PREFIX`)، رسوم التحويل (`TRANSFER_FEE_PERCENT`)، نسبة البيع (`SELL_RATIO`)، مدة الراتب، الرصيد الابتدائي، `STRICT_ITEMS`، النسخ الاحتياطي.
+- `src/config.js`: عدد الهويات وأسماؤها، **الوظائف والرواتب**، حدود الحقيبة والخزنة، تصعيد التحذيرات، أمثلة الحقول.
+- الترقية من النسخة القديمة تلقائية: القاعدة تنترقّى عند التشغيل، والأغراض الموجودة في الحقائب تتسجل في قائمة الأغراض.
+- ديسكورد يسمح بتغيير من يقدر يستخدم أي أمر من: إعدادات السيرفر ← التكاملات.

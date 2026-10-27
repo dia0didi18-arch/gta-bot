@@ -1,0 +1,28 @@
+# نشر على Render كـ Background Worker (بدون Express / بدون بورت).
+# مهم: الـ Disk يحتاج خطة مدفوعة (starter فما فوق). بدونه تنمسح البيانات عند كل إعادة نشر.
+services:
+  - type: worker
+    name: identity-admin-bot
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm run start:render
+    disk:
+      name: bot-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DB_PATH
+        value: /var/data/bot.db
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: LOG_CHANNEL_ID
+        sync: false
